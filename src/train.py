@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Train LogiCheck fallacy classifier")
-    parser.add_argument("--config", default="config/config.yaml")
+    parser.add_argument("--config", default="config.yaml")
     parser.add_argument("--data-dir", default="data/raw/", help="directory with raw dataset files")
     parser.add_argument("--output-dir", default=None, help="override config output_dir")
     parser.add_argument("--resume", default=None, help="path to checkpoint to resume from")

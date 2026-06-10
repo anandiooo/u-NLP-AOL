@@ -1,12 +1,10 @@
-import streamlit as st
-import sys
-import json
 import logging
+import sys
 from pathlib import Path
 
 import pandas as pd
 import plotly.express as px
-import plotly.graph_objects as go
+import streamlit as st
 import torch
 
 st.set_page_config(
@@ -181,21 +179,24 @@ div.stButton > button:not([kind="primary"]):hover {
 PROJECT_ROOT = Path(__file__).parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-import yaml
 import warnings
+
+import yaml
+
 warnings.filterwarnings("ignore", category=FutureWarning)
 warnings.filterwarnings("ignore", category=UserWarning)
 
 from dotenv import load_dotenv
+
 load_dotenv()
 
-from src.data import load_all_datasets, load_json
+from src.data import load_json
 from src.utils import setup_logging
 
 setup_logging("logs/")
 
 DATA_DIR = PROJECT_ROOT / "data" / "raw"
-CONFIG_PATH = PROJECT_ROOT / "config" / "config.yaml"
+CONFIG_PATH = PROJECT_ROOT / "config.yaml"
 OUTPUT_DIR = PROJECT_ROOT / "models"
 CHECKPOINT_PATH = OUTPUT_DIR / "best_model.pt"
 
@@ -361,7 +362,11 @@ def render_home():
                 st.caption(f"Showing all {len(df):,} records")
                 display_df = df.copy()
                 display_df["labels_str"] = display_df["labels"].apply(lambda x: ", ".join(x))
-                st.dataframe(display_df[["text", "labels_str", "split"]].rename(columns={"labels_str": "labels"}), width="stretch", height=400)
+                st.dataframe(
+                    display_df[["text", "labels_str", "split"]].rename(columns={"labels_str": "labels"}),
+                    use_container_width=True,
+                    height=400,
+                )
 
             elif view_option == "Distribution":
                 exploded = df.explode("labels")
@@ -513,7 +518,7 @@ def render_predict():
                 "<strong>How to resolve:</strong><br>"
                 "1. Make sure the model is trained (<code>python src/train.py</code>).<br>"
                 "2. Confirm <code>models/best_model.pt</code> exists.<br>"
-                "3. Or configure <code>hf_repo</code> in <code>config/config.yaml</code> to auto-download.<br>"
+                "3. Or configure <code>hf_repo</code> in <code>config.yaml</code> to auto-download.<br>"
                 "4. Check that all dependencies are installed.",
                 kind="warn",
             )

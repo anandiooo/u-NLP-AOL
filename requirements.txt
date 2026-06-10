@@ -1,46 +1,31 @@
-# =========================
-# Python version (enforced externally)
-# python==3.10
-# =========================
+--extra-index-url https://download.pytorch.org/whl/cu121
 
-# --- Core ML (LOCKED for CUDA 12.1) ---
 torch==2.5.1+cu121
 torchvision==0.20.1+cu121
 torchaudio==2.5.1+cu121
 
-# IMPORTANT:
-# Install using:
-# pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cu121
-
-# --- HuggingFace stack ---
 transformers==4.41.2
 datasets==2.19.1
 tokenizers==0.19.1
 accelerate==0.30.1
 
-# --- Model dependencies ---
 sentencepiece==0.2.0
-protobuf==3.20.3   # pinned to avoid HF incompatibility issues
+protobuf==3.20.3
 
-# --- Data ---
 pandas==2.2.2
 numpy==1.26.4
 scikit-learn==1.4.2
 PyYAML==6.0.1
 
-# --- LLM APIs ---
 google-generativeai==0.5.4
 
-# --- Logging ---
 tensorboard==2.16.2
 
-# --- Utilities ---
 tqdm==4.66.4
 python-dotenv==1.0.1
 
-# --- Dev ---
 ipykernel==6.29.4
+jupyter==1.0.0
 
-# --- UI ---
-streamlit==1.57.0
+streamlit==1.45.1
 plotly==5.22.0
