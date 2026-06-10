@@ -1,0 +1,82 @@
+# logicheck configuration
+project:
+  name: "logicheck"
+  seed: 42
+  output_dir: "models/"
+  log_dir: "logs/"
+  # for hosting on hugging face
+  hf_repo: "your-username/logicheck-model"
+  hf_filename: "best_model.pt"
+
+# fallback labels
+labels:
+  - appeal_to_authority
+  - appeal_to_majority
+  - appeal_to_nature
+  - appeal_to_tradition
+  - appeal_to_worse_problems
+  - false_dilemma
+  - hasty_generalization
+  - slippery_slope
+  - no_fallacy
+
+# focal loss weights
+label_weights:
+  appeal_to_authority: 1.0
+  appeal_to_majority: 1.0
+  appeal_to_nature: 1.0
+  appeal_to_tradition: 1.0
+  appeal_to_worse_problems: 1.0
+  false_dilemma: 1.0
+  hasty_generalization: 1.0
+  slippery_slope: 1.0
+  no_fallacy: 0.7 # majority class
+
+# model settings
+model:
+  backbone: "microsoft/deberta-v3-small"
+  num_labels: 9
+  dropout: 0.2
+  gradient_checkpointing: false
+
+# training settings
+training:
+  epochs: 4
+  batch_size: 16
+  gradient_accumulation_steps: 2 # effective batch 32
+  learning_rate: 3.0e-5
+  weight_decay: 0.01
+  warmup_ratio: 0.1
+  max_grad_norm: 1.0
+  fp16: true
+  eval_strategy: "epoch"
+  save_best_metric: "macro_f1"
+
+# focal loss settings
+focal_loss:
+  gamma: 2.0 # focusing parameter
+  reduction: "mean"
+
+# data settings
+data:
+  max_length: 256 # max sequence length
+  train_ratio: 0.8
+  val_ratio: 0.1
+  test_ratio: 0.1
+  # column mapping
+  text_col: "text"
+  label_col: "label" # single label
+  labels_col: "labels" # multi label
+  context_col: "context" # optional context
+
+# inference settings
+inference:
+  threshold: 0.5 # positive threshold
+  batch_size: 16
+
+# gemini explainer
+explainer:
+  provider: "gemini"
+  model: "gemini-3.1-flash-lite-preview"
+  max_output_tokens: 256
+  temperature: 0.3
