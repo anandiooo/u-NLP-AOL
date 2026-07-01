@@ -1,22 +1,25 @@
 import logging
 import os
-import sys
-from pathlib import Path
-from typing import Dict, List, Optional
 
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from sklearn.metrics import (
+    classification_report,
+    f1_score,
+    precision_score,
+    recall_score,
+)
 from torch.amp import GradScaler, autocast
-from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from transformers import get_linear_schedule_with_warmup
-from sklearn.metrics import classification_report, f1_score, precision_score, recall_score
 
 logger = logging.getLogger(__name__)
 
+# implements focal loss for imbalanced data
 class FocalLoss(nn.Module):
+    # initialises the class instance
     def __init__(self, alpha=None, gamma=2.0, reduction="mean"):
         super().__init__()
         self.gamma = gamma
@@ -29,6 +32,7 @@ class FocalLoss(nn.Module):
         else:
             self.register_buffer("alpha", torch.tensor(alpha, dtype=torch.float))
 
+    # performs forward pass on input
     def forward(self, logits, targets):
         ce_loss = F.cross_entropy(logits, targets, reduction="none", weight=self.alpha)
         probs = F.softmax(logits, dim=-1)
@@ -41,12 +45,14 @@ class FocalLoss(nn.Module):
             return loss.sum()
         return loss
 
+# creates focal loss from config
 def build_focal_loss(config, label_list):
     label_weights = config.get("label_weights", {})
     alpha = [label_weights.get(label, 1.0) for label in label_list]
     gamma = config.get("focal_loss", {}).get("gamma", 2.0)
     return FocalLoss(alpha=alpha, gamma=gamma, reduction="mean")
 
+# calculates evaluation metrics
 def compute_metrics(logits, targets, threshold=0.5, label_names=None):
     preds = torch.argmax(logits, dim=-1).numpy()
     y_true = targets.numpy()
@@ -80,6 +86,7 @@ def compute_metrics(logits, targets, threshold=0.5, label_names=None):
 
     return metrics
 
+# prints scikit learn classification report
 def print_classification_report(logits, targets, label_names, threshold=0.5):
     preds = torch.argmax(logits, dim=-1).numpy()
     y_true = targets.numpy()
@@ -87,7 +94,9 @@ def print_classification_report(logits, targets, label_names, threshold=0.5):
     print(report)
     return report
 
+# handles the model training loop
 class Trainer:
+    # initialises the class instance
     def __init__(self, model, train_loader, val_loader, criterion, config, device, output_dir):
         self.model = model.to(device)
         self.train_loader = train_loader
@@ -124,6 +133,7 @@ class Trainer:
         self.best_macro_f1 = 0.0
         self.global_step = 0
 
+    # trains model for one epoch
     def _train_epoch(self, epoch):
         self.model.train()
         total_loss = 0.0
@@ -168,6 +178,7 @@ class Trainer:
         return total_loss / len(self.train_loader)
 
     @torch.no_grad()
+    # evaluates model on validation set
     def _evaluate(self):
         self.model.eval()
         all_logits, all_labels = [], []
@@ -190,6 +201,7 @@ class Trainer:
         labels = torch.cat(all_labels)
         return compute_metrics(logits, labels, self.threshold)
 
+    # saves model checkpoint
     def _save_checkpoint(self, epoch, metrics):
         path = os.path.join(self.output_dir, "best_model.pt")
         torch.save(
@@ -203,6 +215,7 @@ class Trainer:
         )
         logger.info(f"Done: Saved best checkpoint -> {path} (Macro-F1: {metrics['macro_f1']:.4f})")
 
+    # runs the full training loop
     def train(self):
         logger.info(f"Starting training: {self.epochs} epochs | fp16={self.fp16} | grad_accum={self.grad_accum}")
 

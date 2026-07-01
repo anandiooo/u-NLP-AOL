@@ -8,8 +8,9 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 warnings.filterwarnings("ignore", category=UserWarning)
 
 import torch
-from torch.amp import autocast
 from dotenv import load_dotenv
+from torch.amp import autocast
+
 load_dotenv()
 from transformers import AutoTokenizer
 
@@ -17,22 +18,40 @@ _PROJECT_ROOT = str(Path(__file__).resolve().parent.parent)
 if _PROJECT_ROOT not in sys.path:
     sys.path.insert(0, _PROJECT_ROOT)
 
-from src.data import load_all_datasets, load_dataset_splits, split_dataset, build_dataloaders
-from src.model import FallacyClassifier
-from src.engine import build_focal_loss, compute_metrics, print_classification_report, Trainer
-from src.utils import get_device, load_config, set_seed, setup_logging, count_parameters
+from logicheck.data import (
+    build_dataloaders,
+    load_all_datasets,
+    load_dataset_splits,
+    split_dataset,
+)
+from logicheck.model import FallacyClassifier
+from logicheck.training_engine import (
+    Trainer,
+    build_focal_loss,
+    compute_metrics,
+    print_classification_report,
+)
+from logicheck.utils import (
+    count_parameters,
+    get_device,
+    load_config,
+    set_seed,
+    setup_logging,
+)
 
 logger = logging.getLogger(__name__)
 
+# parse args
 def parse_args():
     parser = argparse.ArgumentParser(description="Train LogiCheck fallacy classifier")
     parser.add_argument("--config", default="config.yaml")
-    parser.add_argument("--data-dir", default="data/raw/", help="directory with raw dataset files")
+    parser.add_argument("--data-dir", default="data/", help="directory with dataset files")
     parser.add_argument("--output-dir", default=None, help="override config output_dir")
     parser.add_argument("--resume", default=None, help="path to checkpoint to resume from")
     parser.add_argument("--eval-only", action="store_true", help="skip training, only run test evaluation")
     return parser.parse_args()
 
+# main execution function for training
 def main():
     args = parse_args()
     config = load_config(args.config)

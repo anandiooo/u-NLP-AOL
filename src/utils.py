@@ -7,6 +7,8 @@ import numpy as np
 import torch
 import yaml
 
+
+# sets random seed for reproducibility
 def set_seed(seed=42):
     random.seed(seed)
     np.random.seed(seed)
@@ -16,10 +18,12 @@ def set_seed(seed=42):
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
 
+# loads configuration from yaml file
 def load_config(path="config.yaml"):
     with open(path, "r", encoding="utf-8") as f:
         return yaml.safe_load(f)
 
+# configures python logging
 def setup_logging(log_dir="logs/", level=logging.INFO):
     os.makedirs(log_dir, exist_ok=True)
     log_file = Path(log_dir) / "logicheck.log"
@@ -32,6 +36,7 @@ def setup_logging(log_dir="logs/", level=logging.INFO):
         ],
     )
 
+# gets the active device for pytorch
 def get_device():
     if torch.cuda.is_available():
         device = torch.device("cuda")
@@ -43,6 +48,7 @@ def get_device():
         logging.getLogger(__name__).warning("No GPU detected -- training on CPU (slow).")
     return device
 
+# counts trainable model parameters
 def count_parameters(model):
     total = sum(p.numel() for p in model.parameters())
     trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)

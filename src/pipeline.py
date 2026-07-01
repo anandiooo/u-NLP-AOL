@@ -12,11 +12,13 @@ _PROJECT_ROOT = str(Path(__file__).resolve().parent.parent)
 if _PROJECT_ROOT not in sys.path:
     sys.path.insert(0, _PROJECT_ROOT)
 
-from src.model import load_model, build_explainer
+from logicheck.explainer import build_explainer
+from logicheck.model import load_model
 
 logger = logging.getLogger(__name__)
 
 @dataclass
+# stores the prediction result
 class FallacyResult:
     text: str
     context: Optional[str]
@@ -26,12 +28,14 @@ class FallacyResult:
     explainer_name: str
     has_fallacy: bool = field(init=False)
 
+    # determines if a fallacy was detected
     def __post_init__(self):
         self.has_fallacy = bool(
             self.detected_fallacies
             and not (len(self.detected_fallacies) == 1 and self.detected_fallacies[0] == "no_fallacy")
         )
 
+    # converts result to dictionary
     def to_dict(self):
         return {
             "text": self.text,
@@ -43,6 +47,7 @@ class FallacyResult:
             "explainer_name": self.explainer_name,
         }
 
+    # returns string representation
     def __repr__(self):
         labels = ", ".join(self.detected_fallacies) or "none"
         return (
@@ -52,7 +57,9 @@ class FallacyResult:
             f"  Explanation: {self.explanation}\n"
         )
 
+# handles the end to end inference process
 class LogiCheckPipeline:
+    # initialises the class instance
     def __init__(self, model, tokenizer, explainer, label_list, threshold, max_length, device):
         self.model = model
         self.tokenizer = tokenizer
@@ -64,6 +71,7 @@ class LogiCheckPipeline:
         self.model.eval()
 
     @classmethod
+    # creates pipeline from configuration
     def from_config(cls, config_path, checkpoint_path):
         with open(config_path, "r") as f:
             config = yaml.safe_load(f)
@@ -85,6 +93,7 @@ class LogiCheckPipeline:
             device=device,
         )
 
+    # tokenizes text input
     def _tokenize(self, text, context=None):
         encoding = self.tokenizer(
             text, context,
@@ -96,6 +105,7 @@ class LogiCheckPipeline:
         return {k: v.to(self.device) for k, v in encoding.items()}
 
     @torch.no_grad()
+    # predicts fallacies in single text
     def predict(self, text, context=None, explain=True):
         encoding = self._tokenize(text, context)
 
@@ -131,6 +141,7 @@ class LogiCheckPipeline:
             explainer_name=self.explainer.name
         )
 
+    # predicts fallacies in multiple texts
     def predict_batch(self, texts, contexts=None, explain=True):
         if contexts is None:
             contexts = [None] * len(texts)

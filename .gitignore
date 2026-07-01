@@ -21,12 +21,17 @@ wheels/
 .installed.cfg
 *.egg
 
-# logicheck specific
-models/
+# jupyter
+.ipynb_checkpoints/
+
+# logicheck
+models/*
+!models/best_model.pt
 logs/
 .env
-*.pt
 *.pth
+*.log
+events.out.tfevents.*
 
 # ide
 .vscode/

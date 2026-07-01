@@ -1,12 +1,12 @@
 import json
 import logging
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 import pandas as pd
 import torch
 from sklearn.model_selection import train_test_split
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import DataLoader, Dataset
 from transformers import PreTrainedTokenizer
 
 logger = logging.getLogger(__name__)
@@ -50,6 +50,7 @@ LABEL_MAP = {
     "none": "no_fallacy",
 }
 
+# standardises label strings
 def _normalise_label(raw):
     if not isinstance(raw, str):
         return None
@@ -63,6 +64,7 @@ def _normalise_label(raw):
         return LABEL_MAP[alt]
     return None
 
+# parses raw labels into a list
 def _parse_labels(raw):
     if isinstance(raw, list):
         labels = raw
@@ -78,6 +80,7 @@ def _parse_labels(raw):
     canonical = [_normalise_label(l) for l in labels]
     return [l for l in canonical if l is not None]
 
+# loads dataset from csv file
 def load_csv(path: str, schema_key: str = ""):
     schema = DATASET_SCHEMAS.get(schema_key, {})
     df = pd.read_csv(path)
@@ -97,6 +100,7 @@ def load_csv(path: str, schema_key: str = ""):
 
     return df[["text", "context", "labels"]].dropna(subset=["text"])
 
+# loads dataset from huggingface
 def load_hf_dataset(dataset_name: str, split: str = "train"):
     from datasets import load_dataset
 
@@ -105,6 +109,7 @@ def load_hf_dataset(dataset_name: str, split: str = "train"):
     logger.info(f"HF dataset '{dataset_name}' columns: {list(df.columns)}")
     return df
 
+# loads and flattens json dataset
 def load_json(path, schema_key=""):
     with open(path, "r", encoding="utf-8") as f:
         content = f.read().strip()
@@ -153,6 +158,7 @@ def load_json(path, schema_key=""):
     logger.info(f"Processed {initial_len} samples, kept {len(df)} with valid labels from {path}")
     return df
 
+# loads all dataset splits
 def load_all_datasets(data_dir):
     data_path = Path(data_dir)
     frames = []
@@ -170,6 +176,7 @@ def load_all_datasets(data_dir):
     logger.info(f"Total samples after merge: {len(combined)}")
     return combined
 
+# loads explicitly named splits
 def load_dataset_splits(data_dir):
     data_path = Path(data_dir)
     split_files = {"train": "train", "dev": "val", "test": "test"}
@@ -189,6 +196,7 @@ def load_dataset_splits(data_dir):
     return splits
 
 
+# splits dataset into train validation test
 def split_dataset(df, train_ratio=0.8, val_ratio=0.1, seed=42):
     df["_strat"] = df["labels"].apply(lambda x: x[0] if x else "no_fallacy")
     train_df, temp_df = train_test_split(df, test_size=(1 - train_ratio), random_state=seed, stratify=df["_strat"])
@@ -199,7 +207,9 @@ def split_dataset(df, train_ratio=0.8, val_ratio=0.1, seed=42):
     logger.info(f"Split sizes -> train: {len(train_df)}, val: {len(val_df)}, test: {len(test_df)}")
     return {"train": train_df, "val": val_df, "test": test_df}
 
+# pytorch dataset class for fallacies
 class FallacyDataset(Dataset):
+    # initialises the class instance
     def __init__(self, df: pd.DataFrame, tokenizer: PreTrainedTokenizer, label_list: List[str], max_length: int = 256):
         self.df = df.reset_index(drop=True)
         self.tokenizer = tokenizer
@@ -208,9 +218,11 @@ class FallacyDataset(Dataset):
         self.max_length = max_length
         self.num_labels = len(label_list)
 
+    # returns dataset length
     def __len__(self):
         return len(self.df)
 
+    # encodes label strings to indices
     def _encode_label(self, labels):
         for label in labels:
             idx = self.label2idx.get(label)
@@ -218,6 +230,7 @@ class FallacyDataset(Dataset):
                 return torch.tensor(idx, dtype=torch.long)
         return torch.tensor(self.label2idx.get("no_fallacy", self.num_labels - 1), dtype=torch.long)
 
+    # gets a single item from dataset
     def __getitem__(self, idx):
         row = self.df.iloc[idx]
         text = str(row["text"])
@@ -241,6 +254,7 @@ class FallacyDataset(Dataset):
             "labels": label_idx,
         }
 
+# creates pytorch dataloaders
 def build_dataloaders(splits, tokenizer, label_list, batch_size=8, max_length=256):
     loaders = {}
     for split_name, df in splits.items():

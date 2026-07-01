@@ -195,7 +195,7 @@ from src.utils import setup_logging
 
 setup_logging("logs/")
 
-DATA_DIR = PROJECT_ROOT / "data" / "raw"
+DATA_DIR = PROJECT_ROOT / "data"
 CONFIG_PATH = PROJECT_ROOT / "config.yaml"
 OUTPUT_DIR = PROJECT_ROOT / "models"
 CHECKPOINT_PATH = OUTPUT_DIR / "best_model.pt"
@@ -231,12 +231,14 @@ for key, val in {
     if key not in st.session_state:
         st.session_state[key] = val
 
+# loads configuration from yaml file
 def load_config():
     if CONFIG_PATH.exists():
         with open(CONFIG_PATH, "r") as f:
             return yaml.safe_load(f)
     return None
 
+# checks if model weights exist or downloads them
 def ensure_model_exists(config):
     if CHECKPOINT_PATH.exists():
         return str(CHECKPOINT_PATH)
@@ -254,6 +256,7 @@ def ensure_model_exists(config):
     return None
 
 @st.cache_data
+# loads and caches the dataset
 def load_dataset_cached():
     try:
         frames = []
@@ -269,10 +272,12 @@ def load_dataset_cached():
         logging.getLogger(__name__).error(f"failed to load dataset: {e}")
     return None
 
+# renders an info box in streamlit
 def ibox(text, kind="info"):
     cls = {"info": "interp-box", "warn": "warn-box", "ok": "ok-box", "risk": "risk-box"}[kind]
     st.markdown(f'<div class="{cls}">{text}</div>', unsafe_allow_html=True)
 
+# renders the page header
 def page_header(title: str, subtitle: str = ""):
     st.markdown(
         f'<div class="page-header">'
@@ -282,8 +287,9 @@ def page_header(title: str, subtitle: str = ""):
         unsafe_allow_html=True,
     )
 
+# renders the home dashboard page
 def render_home():
-    page_header("LogiCheck", "Context-aware multi-label logical fallacy detection")
+    page_header("LogiCheck", "Context-aware logical fallacy detection")
 
     tab_overview, tab_data, tab_config, tab_eval = st.tabs([
         "Overview", "Data Exploration", "Model Config", "Performance"
@@ -299,19 +305,20 @@ def render_home():
         df = load_dataset_cached()
         if df is not None:
             total = len(df)
-            has_fallacy = df["labels"].apply(lambda x: any(l != "no_fallacy" for l in x) if x else False).sum()
+            has_fallacy = df["labels"].apply(lambda x: any(l != "no_fallacy" for l in x) if isinstance(x, list) and x else False).sum()
+            no_fallacy = total - has_fallacy
             unique_labels = set()
             for labels in df["labels"]:
-                unique_labels.update(labels)
-            avg_labels = df["labels"].apply(len).mean()
+                if isinstance(labels, list):
+                    unique_labels.update(labels)
 
         st.markdown('<div class="section-heading">Dataset Statistics</div>', unsafe_allow_html=True)
         c1, c2, c3, c4 = st.columns(4)
         for col, label, value, sub in [
             (c1, "Total Samples", f"{total:,}", "across all splits"),
             (c2, "Fallacious Texts", f"{has_fallacy:,}", f"{has_fallacy/total:.1%} of dataset"),
-            (c3, "Unique Fallacies", f"{len(unique_labels)}", "label categories"),
-            (c4, "Avg Labels", f"{avg_labels:.2f}", "multi-label density per sample"),
+            (c3, "Unique Fallacies", f"{len(unique_labels) - 1}", "fallacy categories"),
+            (c4, "Valid Texts", f"{no_fallacy:,}", "no_fallacy labels"),
         ]:
             col.markdown(
                 f'<div class="metric-card">'
@@ -325,8 +332,8 @@ def render_home():
         st.markdown('<div class="section-heading">System Architecture</div>', unsafe_allow_html=True)
         c1, c2, c3 = st.columns(3)
         steps = [
-            ("Stage 1: Detection", "DeBERTa-v3-small encoder with a compact multi-label head and Focal Loss."),
-            ("Stage 2: Explanation", "Gemini 1.5 Flash generates educational explanations for detected fallacies."),
+            ("Stage 1: Detection", "DeBERTa-v3-small encoder with a multi-class head and Focal Loss."),
+            ("Stage 2: Explanation", "Gemini AI generates educational explanations for detected fallacies."),
             ("Inference Pipeline", "Two-stage pipeline: classify text, then explain detected reasoning errors."),
         ]
         for col, (title, desc) in zip([c1, c2, c3], steps):
@@ -342,19 +349,19 @@ def render_home():
         fc1, fc2 = st.columns(2)
         with fc1:
             st.markdown(
-                "**Ad Hominem**\n\nAttacking the person instead of the argument.\n\n"
-                "**Slippery Slope**\n\nAsserting that one event will inevitably lead to a chain of others."
+                "**Appeal to Authority**\n\nCiting an authority figure as evidence without proper reasoning.\n\n"
+                "**Slippery Slope**\n\nAssuming a chain of events will inevitably follow without justification."
             )
         with fc2:
             st.markdown(
-                "**False Dilemma**\n\nPresenting only two options when more exist.\n\n"
-                "**Hasty Generalization**\n\nDrawing conclusions from insufficient evidence."
+                "**False Dilemma**\n\nPresenting only two options when more alternatives exist.\n\n"
+                "**Hasty Generalization**\n\nDrawing a broad conclusion from a small or unrepresentative sample."
             )
 
     with tab_data:
         df = load_dataset_cached()
         if df is None:
-            st.error("Dataset not found. Place train.json, dev.json, test.json in data/raw/.")
+            st.error("Dataset not found. Place train.json, dev.json, test.json in data/.")
         else:
             view_option = st.selectbox("Select View:", ["Raw Data", "Distribution", "Splits"])
 
@@ -451,6 +458,7 @@ def render_home():
                     "**Precision/Recall**: Balance between detection accuracy and completeness."
                 )
 
+# renders the prediction page
 def render_predict():
     # force reload to apply library and env fixes
     if "fixed_v4" not in st.session_state:
@@ -516,7 +524,7 @@ def render_predict():
             st.error(f"Prediction failed: {e}")
             ibox(
                 "<strong>How to resolve:</strong><br>"
-                "1. Make sure the model is trained (<code>python src/train.py</code>).<br>"
+                "1. Make sure the model is trained (<code>python logicheck/train.py</code>).<br>"
                 "2. Confirm <code>models/best_model.pt</code> exists.<br>"
                 "3. Or configure <code>hf_repo</code> in <code>config.yaml</code> to auto-download.<br>"
                 "4. Check that all dependencies are installed.",
